@@ -136,6 +136,7 @@ h1 {
 }
 
 .stat-card,
+.reminder-panel,
 .task-panel,
 .chart-card {
   background: var(--surface);
@@ -166,6 +167,57 @@ h1 {
   color: var(--accent);
 }
 
+.reminder-panel {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 18px;
+  padding: 18px 20px;
+}
+
+.reminder-panel h2 {
+  margin-bottom: 6px;
+  font-size: 1rem;
+}
+
+.reminder-panel p {
+  margin-bottom: 0;
+  color: var(--muted);
+}
+
+.reminder-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.reminder-actions label {
+  color: var(--muted);
+  font-weight: 800;
+}
+
+.reminder-actions button {
+  min-height: 40px;
+  padding: 8px 13px;
+  color: var(--text);
+  background: var(--surface-soft);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  font-weight: 800;
+}
+
+.reminder-actions #reminderToggle.active {
+  color: #ffffff;
+  background: var(--primary);
+  border-color: var(--primary);
+}
+
+[data-theme="dark"] .reminder-actions #reminderToggle.active {
+  color: #10201b;
+}
+
 .task-workspace {
   display: grid;
   grid-template-columns: minmax(0, 1.45fr) minmax(320px, 0.8fr);
@@ -179,11 +231,12 @@ h1 {
 
 .task-form {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) minmax(210px, 0.45fr) auto;
   gap: 12px;
 }
 
-.task-form input {
+.task-form input,
+.reminder-field {
   min-width: 0;
   padding: 15px 16px;
   color: var(--text);
@@ -196,6 +249,37 @@ h1 {
 .task-form input:focus {
   border-color: var(--primary);
   box-shadow: 0 0 0 4px rgba(20, 125, 100, 0.14);
+}
+
+.reminder-field {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  padding: 6px 10px;
+}
+
+.reminder-field span {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.reminder-field input {
+  width: 100%;
+  padding: 7px 0;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+}
+
+.reminder-field:focus-within {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 4px rgba(20, 125, 100, 0.14);
+}
+
+.reminder-field input:focus {
+  box-shadow: none;
 }
 
 .task-form button {
@@ -277,6 +361,25 @@ h1 {
   margin-top: 4px;
   color: var(--muted);
   font-size: 0.78rem;
+}
+
+.task-reminder {
+  display: inline-flex;
+  align-items: center;
+  margin-top: 7px;
+  padding: 4px 8px;
+  color: var(--primary-strong);
+  background: rgba(20, 125, 100, 0.1);
+  border: 1px solid rgba(20, 125, 100, 0.16);
+  border-radius: 999px;
+  font-size: 0.76rem;
+  font-weight: 800;
+}
+
+[data-theme="dark"] .task-reminder {
+  color: var(--primary-strong);
+  background: rgba(82, 212, 173, 0.11);
+  border-color: rgba(82, 212, 173, 0.22);
 }
 
 .task-item.completed .task-title {
@@ -412,6 +515,29 @@ select {
   border: 0;
 }
 
+.toast {
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  z-index: 10;
+  max-width: min(360px, calc(100vw - 36px));
+  padding: 14px 16px;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+  opacity: 0;
+  transform: translateY(12px);
+  pointer-events: none;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.toast.show {
+  opacity: 1;
+  transform: translateY(0);
+}
+
 @media (max-width: 850px) {
   .hero,
   .task-form {
@@ -428,6 +554,11 @@ select {
 
   .task-workspace {
     grid-template-columns: 1fr;
+  }
+
+  .reminder-panel {
+    align-items: stretch;
+    flex-direction: column;
   }
 
   .task-form button {
@@ -457,6 +588,16 @@ select {
 
   .task-item {
     grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .reminder-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .reminder-actions button,
+  .reminder-actions select {
+    width: 100%;
   }
 
   .task-actions {
