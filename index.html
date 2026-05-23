@@ -42,11 +42,33 @@
       </article>
     </section>
 
+    <section class="reminder-panel" aria-label="Task reminders">
+      <div>
+        <h2>Pending task reminders</h2>
+        <p id="reminderStatus">Reminders are off.</p>
+      </div>
+      <div class="reminder-actions">
+        <label for="reminderInterval">Every</label>
+        <select id="reminderInterval">
+          <option value="1">1 min</option>
+          <option value="15">15 min</option>
+          <option value="30" selected>30 min</option>
+          <option value="60">1 hour</option>
+        </select>
+        <button id="reminderToggle" type="button">Enable reminders</button>
+        <button id="notifyNow" type="button">Notify now</button>
+      </div>
+    </section>
+
     <section class="task-workspace">
       <div class="task-panel">
         <form class="task-form" id="taskForm">
           <label class="sr-only" for="taskInput">New task</label>
           <input id="taskInput" type="text" placeholder="Add a new task..." autocomplete="off" maxlength="120" required>
+          <label class="reminder-field" for="taskReminder">
+            <span>Reminder</span>
+            <input id="taskReminder" type="datetime-local" aria-label="Task reminder date and time">
+          </label>
           <button type="submit">Add Task</button>
         </form>
 
@@ -93,6 +115,8 @@
       </aside>
     </section>
   </main>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
   <script src="app.js"></script>
 </body>
