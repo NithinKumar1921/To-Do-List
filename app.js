@@ -1,11 +1,19 @@
 const storageKey = "todo-list-pro-tasks";
 const themeKey = "todo-list-pro-theme";
+const reminderKey = "todo-list-pro-reminders";
+const reminderIntervalKey = "todo-list-pro-reminder-interval";
 
 const state = {
   tasks: JSON.parse(localStorage.getItem(storageKey) || "[]"),
   filter: "all",
-  overview: "daily"
+  overview: "daily",
+  remindersEnabled: localStorage.getItem(reminderKey) === "true",
+  reminderInterval: Number(localStorage.getItem(reminderIntervalKey) || 30)
 };
+
+let reminderTimer = null;
+let taskReminderTimer = null;
+let toastTimer = null;
 
 const els = {
   body: document.body,
@@ -13,6 +21,7 @@ const els = {
   themeText: document.getElementById("themeText"),
   taskForm: document.getElementById("taskForm"),
   taskInput: document.getElementById("taskInput"),
+  taskReminder: document.getElementById("taskReminder"),
   taskList: document.getElementById("taskList"),
   emptyState: document.getElementById("emptyState"),
   clearCompleted: document.getElementById("clearCompleted"),
@@ -25,7 +34,12 @@ const els = {
   donutPercent: document.getElementById("donutPercent"),
   donut: document.getElementById("completionDonut"),
   overviewChart: document.getElementById("overviewChart"),
-  overviewRange: document.getElementById("overviewRange")
+  overviewRange: document.getElementById("overviewRange"),
+  reminderStatus: document.getElementById("reminderStatus"),
+  reminderInterval: document.getElementById("reminderInterval"),
+  reminderToggle: document.getElementById("reminderToggle"),
+  notifyNow: document.getElementById("notifyNow"),
+  toast: document.getElementById("toast")
 };
 
 const savedTheme = localStorage.getItem(themeKey) || "light";
@@ -36,17 +50,28 @@ function saveTasks() {
   localStorage.setItem(storageKey, JSON.stringify(state.tasks));
 }
 
-function createTask(title) {
+function createTask(title, reminderAt) {
   return {
     id: crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(16).slice(2)}`,
     title,
     completed: false,
     createdAt: new Date().toISOString(),
-    completedAt: null
+    completedAt: null,
+    reminderAt,
+    reminderSent: false
   };
 }
 
 function formatDate(value) {
+  return new Intl.DateTimeFormat(undefined, {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit"
+  }).format(new Date(value));
+}
+
+function formatReminder(value) {
   return new Intl.DateTimeFormat(undefined, {
     month: "short",
     day: "numeric",
@@ -72,6 +97,10 @@ function getFilteredTasks() {
   return sortedTasks;
 }
 
+function getPendingTasks() {
+  return state.tasks.filter(task => !task.completed);
+}
+
 function renderTasks() {
   const tasks = getFilteredTasks();
   els.taskList.innerHTML = "";
@@ -86,12 +115,16 @@ function renderTasks() {
     const meta = task.completed && task.completedAt
       ? `Completed ${formatDate(task.completedAt)}`
       : `Created ${formatDate(task.createdAt)}`;
+    const reminder = task.reminderAt
+      ? `<div class="task-reminder">Reminder ${formatReminder(task.reminderAt)}</div>`
+      : "";
 
     item.innerHTML = `
       <input class="task-check" type="checkbox" ${checked} aria-label="Mark task complete">
       <div>
         <div class="task-title">${escapeHtml(task.title)}</div>
         <div class="task-meta">${meta}</div>
+        ${reminder}
       </div>
       <div class="task-actions">
         <button class="icon-btn edit-btn" type="button" title="Edit task" aria-label="Edit task">Edit</button>
@@ -124,6 +157,7 @@ function renderStats() {
 
   drawDonut(percent);
   drawOverview();
+  updateReminderUi();
 }
 
 function cssVar(name) {
@@ -292,20 +326,163 @@ function render() {
   renderStats();
 }
 
+function toIsoFromDateTimeLocal(value) {
+  if (!value) return null;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date.toISOString();
+}
+
+function updateReminderUi() {
+  const pendingCount = getPendingTasks().length;
+  const intervalText = `${state.reminderInterval} min`;
+
+  els.reminderInterval.value = String(state.reminderInterval);
+  els.reminderToggle.classList.toggle("active", state.remindersEnabled);
+  els.reminderToggle.textContent = state.remindersEnabled ? "Disable reminders" : "Enable reminders";
+
+  if (state.remindersEnabled) {
+    els.reminderStatus.textContent = pendingCount
+      ? `On. You will be reminded every ${intervalText} about ${pendingCount} pending task${pendingCount === 1 ? "" : "s"}.`
+      : "On. No pending tasks right now.";
+  } else {
+    els.reminderStatus.textContent = pendingCount
+      ? `Off. ${pendingCount} pending task${pendingCount === 1 ? "" : "s"} waiting.`
+      : "Reminders are off.";
+  }
+}
+
+function startReminderTimer() {
+  window.clearInterval(reminderTimer);
+  reminderTimer = null;
+
+  if (!state.remindersEnabled) {
+    updateReminderUi();
+    return;
+  }
+
+  reminderTimer = window.setInterval(() => {
+    sendPendingReminder(false);
+    sendDueTaskReminders();
+  }, state.reminderInterval * 60 * 1000);
+
+  updateReminderUi();
+}
+
+async function enableReminders() {
+  await requestNotificationPermission();
+
+  state.remindersEnabled = true;
+  localStorage.setItem(reminderKey, "true");
+  startReminderTimer();
+  sendPendingReminder(true);
+}
+
+async function requestNotificationPermission() {
+  if ("Notification" in window && Notification.permission === "default") {
+    await Notification.requestPermission();
+  }
+}
+
+function disableReminders() {
+  state.remindersEnabled = false;
+  localStorage.setItem(reminderKey, "false");
+  startReminderTimer();
+  showToast("Pending task reminders are off.");
+}
+
+function sendPendingReminder(isManual) {
+  const pendingTasks = getPendingTasks();
+
+  if (!pendingTasks.length) {
+    if (isManual) {
+      showToast("All caught up. No pending tasks right now.");
+    }
+    return;
+  }
+
+  const title = `${pendingTasks.length} pending task${pendingTasks.length === 1 ? "" : "s"}`;
+  const preview = pendingTasks.slice(0, 3).map(task => task.title).join(", ");
+  const extra = pendingTasks.length > 3 ? ` and ${pendingTasks.length - 3} more` : "";
+  const message = `${preview}${extra}`;
+
+  if ("Notification" in window && Notification.permission === "granted") {
+    new Notification(title, {
+      body: message,
+      tag: "todo-list-pending-reminder"
+    });
+  } else {
+    showToast(`${title}: ${message}`);
+  }
+}
+
+function sendDueTaskReminders() {
+  const now = Date.now();
+  const dueTasks = state.tasks.filter(task => {
+    if (task.completed || task.reminderSent || !task.reminderAt) return false;
+    return new Date(task.reminderAt).getTime() <= now;
+  });
+
+  if (!dueTasks.length) return;
+
+  dueTasks.forEach(task => {
+    notifyTaskReminder(task);
+    task.reminderSent = true;
+  });
+
+  saveTasks();
+  renderTasks();
+}
+
+function notifyTaskReminder(task) {
+  const title = "Task reminder";
+  const message = task.title;
+
+  if ("Notification" in window && Notification.permission === "granted") {
+    new Notification(title, {
+      body: message,
+      tag: `todo-list-task-${task.id}`
+    });
+  } else {
+    showToast(`${title}: ${message}`);
+  }
+}
+
+function startTaskReminderTimer() {
+  window.clearInterval(taskReminderTimer);
+  taskReminderTimer = window.setInterval(sendDueTaskReminders, 30000);
+}
+
+function showToast(message) {
+  window.clearTimeout(toastTimer);
+  els.toast.textContent = message;
+  els.toast.classList.add("show");
+
+  toastTimer = window.setTimeout(() => {
+    els.toast.classList.remove("show");
+  }, 4200);
+}
+
 function setThemeText(theme) {
   els.themeText.textContent = theme === "dark" ? "Dark" : "Light";
   document.querySelector(".toggle-icon").textContent = theme === "dark" ? "D" : "L";
 }
 
-els.taskForm.addEventListener("submit", event => {
+els.taskForm.addEventListener("submit", async event => {
   event.preventDefault();
   const title = els.taskInput.value.trim();
   if (!title) return;
 
-  state.tasks.unshift(createTask(title));
+  const reminderAt = toIsoFromDateTimeLocal(els.taskReminder.value);
+  if (reminderAt) {
+    await requestNotificationPermission();
+  }
+
+  state.tasks.unshift(createTask(title, reminderAt));
   els.taskInput.value = "";
+  els.taskReminder.value = "";
   saveTasks();
   render();
+  sendDueTaskReminders();
 });
 
 els.taskList.addEventListener("click", event => {
@@ -365,6 +542,27 @@ els.overviewRange.addEventListener("change", event => {
   drawOverview();
 });
 
+els.reminderToggle.addEventListener("click", () => {
+  if (state.remindersEnabled) {
+    disableReminders();
+  } else {
+    enableReminders();
+  }
+});
+
+els.reminderInterval.addEventListener("change", event => {
+  state.reminderInterval = Number(event.target.value);
+  localStorage.setItem(reminderIntervalKey, String(state.reminderInterval));
+  startReminderTimer();
+});
+
+els.notifyNow.addEventListener("click", () => {
+  sendPendingReminder(true);
+});
+
 window.addEventListener("resize", drawOverview);
 
 render();
+startReminderTimer();
+startTaskReminderTimer();
+sendDueTaskReminders();
