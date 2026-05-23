@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>To Do List</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main class="app-shell">
+    <section class="hero" aria-labelledby="app-title">
+      <div>
+        <p class="eyebrow">Focus board</p>
+        <h1 id="app-title">To Do List</h1>
+        <p class="hero-copy">Plan the day, finish the work, and keep a clean streak of completed tasks.</p>
+      </div>
+      <button class="theme-toggle" id="themeToggle" type="button" aria-label="Switch theme">
+        <span class="toggle-icon" aria-hidden="true">L</span>
+        <span id="themeText">Light</span>
+      </button>
+    </section>
+
+    <section class="quick-stats" aria-label="Task summary">
+      <article class="stat-card">
+        <span>Total tasks</span>
+        <strong id="totalTasks">0</strong>
+      </article>
+      <article class="stat-card">
+        <span>Completed</span>
+        <strong id="completedTasks">0</strong>
+      </article>
+      <article class="stat-card">
+        <span>Pending</span>
+        <strong id="pendingTasks">0</strong>
+      </article>
+      <article class="stat-card streak-card">
+        <span>Current streak</span>
+        <strong><span id="streakDays">0</span> days</strong>
+      </article>
+    </section>
+
+    <section class="task-workspace">
+      <div class="task-panel">
+        <form class="task-form" id="taskForm">
+          <label class="sr-only" for="taskInput">New task</label>
+          <input id="taskInput" type="text" placeholder="Add a new task..." autocomplete="off" maxlength="120" required>
+          <button type="submit">Add Task</button>
+        </form>
+
+        <div class="toolbar" aria-label="Task filters">
+          <button class="filter-btn active" data-filter="all" type="button">All</button>
+          <button class="filter-btn" data-filter="active" type="button">Active</button>
+          <button class="filter-btn" data-filter="completed" type="button">Done</button>
+          <button class="clear-btn" id="clearCompleted" type="button">Clear done</button>
+        </div>
+
+        <ul class="task-list" id="taskList" aria-live="polite"></ul>
+        <div class="empty-state" id="emptyState">
+          <strong>No tasks yet</strong>
+          <p>Add one thing worth finishing today.</p>
+        </div>
+      </div>
+
+      <aside class="insights" aria-label="Completion insights">
+        <div class="chart-card">
+          <div class="section-heading">
+            <h2>Completion</h2>
+            <span id="completionRate">0%</span>
+          </div>
+          <div class="donut-wrap">
+            <canvas id="completionDonut" width="220" height="220" aria-label="Completion donut chart"></canvas>
+            <div class="donut-label">
+              <strong id="donutPercent">0%</strong>
+              <span>done</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="chart-card">
+          <div class="section-heading">
+            <h2>Overview</h2>
+            <select id="overviewRange" aria-label="Select overview range">
+              <option value="daily">Daily</option>
+              <option value="weekly">Weekly</option>
+              <option value="monthly">Monthly</option>
+            </select>
+          </div>
+          <canvas id="overviewChart" height="180" aria-label="Task completion overview bar chart"></canvas>
+        </div>
+      </aside>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
